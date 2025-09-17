@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: localhub-backend
+    env: node
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+databases:
+  - name: localhub-db
+    databaseName: localhub
+    user: postgres
