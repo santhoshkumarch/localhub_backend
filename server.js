@@ -31,7 +31,7 @@ app.get('/health', (req, res) => {
 
 // Middleware
 app.use(cors({
-  origin: '*',
+  origin: [process.env.FRONTEND_URL, process.env.FRONTEND_URL2, 'http://localhost:3000'],
   credentials: true
 }));
 app.use(express.json());
