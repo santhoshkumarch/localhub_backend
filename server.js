@@ -31,7 +31,7 @@ app.get('/health', (req, res) => {
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:3000', 'https://localhub-admin.vercel.app'],
+  origin: ['https://localhub-admin.vercel.app'],
   credentials: false,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
