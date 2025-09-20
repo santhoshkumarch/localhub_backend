@@ -20,6 +20,11 @@ const initDatabase = async () => {
   }
 };
 
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Middleware
 app.use(cors({
   origin: '*',
@@ -37,10 +42,15 @@ app.use('/api/hashtags', require('./routes/hashtags'));
 
 // Start server
 const startServer = async () => {
-  await initDatabase();
-  app.listen(PORT, () => {
-    console.log(`LocalHub Admin Backend running on port ${PORT}`);
-  });
+  try {
+    await initDatabase();
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`LocalHub Admin Backend running on port ${PORT}`);
+    });
+  } catch (error) {
+    console.error('Server startup error:', error);
+    process.exit(1);
+  }
 };
 
 startServer();
