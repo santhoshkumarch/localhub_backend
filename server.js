@@ -29,13 +29,21 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+const allowedOrigins = [
+  'https://localhub-admin.vercel.app',
+  'http://localhost:3000'
+];
+
 // Middleware
 app.use(cors({
   origin: '*',
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type','Authorization','X-Requested-With','Accept'],
   credentials: false,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  preflightContinue: false,
+  optionsSuccessStatus: 204
 }));
+app.options('*', cors());
 app.use(express.json());
 
 // Routes
