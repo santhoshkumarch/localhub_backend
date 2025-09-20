@@ -31,7 +31,11 @@ app.get('/health', (req, res) => {
 
 // Middleware
 app.use(cors({
-  origin: [process.env.FRONTEND_URL, process.env.FRONTEND_URL2, 'http://localhost:3000'],
+  origin: [
+    'https://localhub-admin.vercel.app',
+    'http://localhost:3000',
+    'http://127.0.0.1:3000'
+  ],
   credentials: true
 }));
 app.use(express.json());
