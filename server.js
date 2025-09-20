@@ -47,7 +47,11 @@ app.use('/api/hashtags', require('./routes/hashtags'));
 // Start server
 const startServer = async () => {
   try {
-    await initDatabase();
+    if (process.env.DATABASE_URL || process.env.DB_HOST) {
+      await initDatabase();
+    } else {
+      console.log('No database configuration found, skipping database initialization');
+    }
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`LocalHub Admin Backend running on port ${PORT}`);
     });
