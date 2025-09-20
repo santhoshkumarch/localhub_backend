@@ -20,7 +20,11 @@ const initDatabase = async () => {
   }
 };
 
-// Health check endpoint
+// Health check endpoints
+app.get('/', (req, res) => {
+  res.status(200).json({ status: 'OK', message: 'LocalHub Admin Backend', timestamp: new Date().toISOString() });
+});
+
 app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
