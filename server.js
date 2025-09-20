@@ -9,8 +9,13 @@ const pool = require('./config/database');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Simple CORS - allow all origins
-app.use(cors());
+// CORS configuration
+app.use(cors({
+  origin: ['https://localhub-admin.vercel.app', 'http://localhost:3000'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Initialize database
