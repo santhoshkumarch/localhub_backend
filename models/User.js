@@ -50,6 +50,20 @@ class User {
     return this.getById(id);
   }
 
+  static async create(userData) {
+    const { name, email, phone, district, userType = 'individual' } = userData;
+    const result = await pool.query(
+      'INSERT INTO users (name, email, phone, district, user_type, is_active, is_verified, joined_date, business_count, posts_count) VALUES ($1, $2, $3, $4, $5, true, false, NOW(), 0, 0) RETURNING *',
+      [name, email, phone, district, userType]
+    );
+    return this.getById(result.rows[0].id);
+  }
+
+  static async delete(id) {
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [id]);
+    return result.rows.length > 0;
+  }
+
   static async toggleStatus(id) {
     const result = await pool.query(
       'UPDATE users SET is_active = NOT is_active WHERE id = $1 RETURNING *',
