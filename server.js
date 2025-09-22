@@ -62,7 +62,20 @@ app.get('/health', (req, res) => {
 app.get('/test-db', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
-    res.json({ status: 'Database connected', time: result.rows[0].now });
+    
+    // Check if tables exist
+    const tablesResult = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('users', 'businesses', 'posts', 'admin_users')
+    `);
+    
+    res.json({ 
+      status: 'Database connected', 
+      time: result.rows[0].now,
+      tables: tablesResult.rows.map(row => row.table_name)
+    });
   } catch (error) {
     res.status(500).json({ status: 'Database error', error: error.message });
   }
