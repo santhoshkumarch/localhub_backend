@@ -1,10 +1,19 @@
 const express = require('express');
-const { getHashtags, createHashtag, deleteHashtag } = require('../controllers/hashtagController');
-const { authenticate, authorize } = require('../middleware/auth');
+const { 
+  getHashtags, 
+  createHashtag, 
+  updateHashtag, 
+  deleteHashtag, 
+  getHashtagById, 
+  getPopularHashtags 
+} = require('../controllers/hashtagController');
 const router = express.Router();
 
-router.get('/', authenticate, authorize('hashtags:read'), getHashtags);
-router.post('/', authenticate, authorize('hashtags:write'), createHashtag);
-router.delete('/:id', authenticate, authorize('hashtags:delete'), deleteHashtag);
+router.get('/', getHashtags);
+router.get('/popular', getPopularHashtags);
+router.get('/:id', getHashtagById);
+router.post('/', createHashtag);
+router.put('/:id', updateHashtag);
+router.delete('/:id', deleteHashtag);
 
 module.exports = router;

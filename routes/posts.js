@@ -1,9 +1,23 @@
 const express = require('express');
-const { getPosts, updatePostStatus } = require('../controllers/postController');
-const { authenticate, authorize } = require('../middleware/auth');
+const { 
+  getPosts, 
+  getPostById, 
+  updatePostStatus, 
+  setPostDuration, 
+  setPostViewLimit, 
+  assignPostLabel, 
+  createPost, 
+  deletePost 
+} = require('../controllers/postController');
 const router = express.Router();
 
-router.get('/', authenticate, authorize('posts:read'), getPosts);
-router.patch('/:id/status', authenticate, authorize('posts:write'), updatePostStatus);
+router.get('/', getPosts);
+router.get('/:id', getPostById);
+router.post('/', createPost);
+router.delete('/:id', deletePost);
+router.patch('/:id/status', updatePostStatus);
+router.patch('/:id/duration', setPostDuration);
+router.patch('/:id/view-limit', setPostViewLimit);
+router.patch('/:id/label', assignPostLabel);
 
 module.exports = router;

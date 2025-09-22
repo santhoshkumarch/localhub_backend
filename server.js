@@ -59,13 +59,25 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+app.get('/test-db', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ status: 'Database connected', time: result.rows[0].now });
+  } catch (error) {
+    res.status(500).json({ status: 'Database error', error: error.message });
+  }
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/businesses', require('./routes/businesses'));
 app.use('/api/posts', require('./routes/posts'));
 app.use('/api/districts', require('./routes/districts'));
 app.use('/api/hashtags', require('./routes/hashtags'));
+app.use('/api/menus', require('./routes/menus'));
+app.use('/api/settings', require('./routes/settings'));
 
 // Start server
 const startServer = async () => {
