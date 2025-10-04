@@ -16,8 +16,13 @@ const sendOTP = async (req, res) => {
       res.status(400).json({ error: result.error });
     }
   } catch (error) {
-    console.error('Send OTP controller error:', error);
-    res.status(500).json({ error: 'Failed to send OTP' });
+    console.error('Send OTP controller error:', error.message);
+    
+    if (error.message.includes('credentials not configured')) {
+      res.status(500).json({ error: 'SMS service not configured properly' });
+    } else {
+      res.status(500).json({ error: 'Failed to send OTP: ' + error.message });
+    }
   }
 };
 
@@ -34,11 +39,16 @@ const verifyOTP = async (req, res) => {
     if (result.success) {
       res.json({ message: 'OTP verified successfully', verified: true });
     } else {
-      res.status(400).json({ error: 'Invalid OTP', verified: false });
+      res.status(400).json({ error: result.error || 'Invalid OTP', verified: false });
     }
   } catch (error) {
-    console.error('Verify OTP controller error:', error);
-    res.status(500).json({ error: 'Failed to verify OTP' });
+    console.error('Verify OTP controller error:', error.message);
+    
+    if (error.message.includes('credentials not configured')) {
+      res.status(500).json({ error: 'SMS service not configured properly', verified: false });
+    } else {
+      res.status(500).json({ error: 'Failed to verify OTP: ' + error.message, verified: false });
+    }
   }
 };
 
