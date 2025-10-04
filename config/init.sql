@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS users (
     role VARCHAR(50) DEFAULT 'user',
     is_active BOOLEAN DEFAULT true,
     is_verified BOOLEAN DEFAULT false,
+    is_logged_in BOOLEAN DEFAULT false,
     last_active TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -174,6 +175,14 @@ CREATE TABLE IF NOT EXISTS settings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(category, key)
+);
+
+-- OTP codes table for temporary OTP storage
+CREATE TABLE IF NOT EXISTS otp_codes (
+    phone VARCHAR(20) PRIMARY KEY,
+    otp VARCHAR(50) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Insert default admin users

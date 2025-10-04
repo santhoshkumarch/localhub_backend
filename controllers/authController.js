@@ -1,6 +1,13 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
 const crypto = require('crypto');
+const twilio = require('twilio');
+
+// Initialize Twilio client
+const client = twilio(
+  process.env.TWILIO_ACCOUNT_SID,
+  process.env.TWILIO_AUTH_TOKEN
+);
 
 const login = async (req, res) => {
   try {
@@ -133,4 +140,223 @@ const changePassword = async (req, res) => {
   }
 };
 
-module.exports = { login, getProfile, updateProfile, changePassword };
+const checkUser = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+    
+    // Check if user exists
+    const query = 'SELECT id, email, phone, name, is_logged_in FROM users WHERE phone = $1';
+    const result = await pool.query(query, [phone]);
+    
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      res.json({ 
+        exists: true, 
+        user: user,
+        isLoggedIn: user.is_logged_in || false
+      });
+    } else {
+      res.json({ exists: false, isLoggedIn: false });
+    }
+  } catch (error) {
+    console.error('Check user error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const registerUser = async (req, res) => {
+  try {
+    const { phone, name } = req.body;
+    
+    if (!phone || !name) {
+      return res.status(400).json({ message: 'Phone and name are required' });
+    }
+    
+    // Generate email from phone number since email is required
+    const email = `${phone}@localhub.app`;
+    
+    // Insert new user
+    const query = 'INSERT INTO users (email, phone, name) VALUES ($1, $2, $3) RETURNING id, email, phone, name';
+    const result = await pool.query(query, [email, phone, name]);
+    
+    res.json({ message: 'User registered successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Register user error:', error);
+    if (error.code === '23505') {
+      return res.status(400).json({ message: 'Phone number already exists' });
+    }
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const sendOtp = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+    
+    // Format phone number to E.164 format
+    let formattedPhone = phone.replace(/\D/g, '');
+    if (!formattedPhone.startsWith('91') && formattedPhone.length === 10) {
+      formattedPhone = '91' + formattedPhone;
+    }
+    if (!formattedPhone.startsWith('+')) {
+      formattedPhone = '+' + formattedPhone;
+    }
+    
+    try {
+      // Try Twilio first
+      const verification = await client.verify.v2
+        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+        .verifications
+        .create({ to: formattedPhone, channel: 'sms', codeLength: 4 });
+      
+      await pool.query(
+        'INSERT INTO otp_codes (phone, otp, expires_at) VALUES ($1, $2, $3) ON CONFLICT (phone) DO UPDATE SET otp = $2, expires_at = $3, created_at = CURRENT_TIMESTAMP',
+        [phone, 'TWILIO_MANAGED', new Date(Date.now() + 10 * 60 * 1000)]
+      );
+      
+      console.log(`Twilio OTP sent to ${phone}`);
+      res.json({ message: 'OTP sent successfully', method: 'twilio' });
+      
+    } catch (twilioError) {
+      console.error('Twilio failed, using fallback OTP:', twilioError.message);
+      
+      // Fallback: Generate simple OTP
+      const otp = Math.floor(1000 + Math.random() * 9000).toString();
+      
+      await pool.query(
+        'INSERT INTO otp_codes (phone, otp, expires_at) VALUES ($1, $2, $3) ON CONFLICT (phone) DO UPDATE SET otp = $2, expires_at = $3, created_at = CURRENT_TIMESTAMP',
+        [phone, otp, new Date(Date.now() + 5 * 60 * 1000)] // 5 minutes expiry
+      );
+      
+      console.log(`Fallback OTP generated for ${phone}: ${otp}`);
+      
+      res.json({ 
+        message: 'OTP sent successfully', 
+        method: 'fallback',
+        otp: otp // Include OTP in response for development
+      });
+    }
+  } catch (error) {
+    console.error('Send OTP error:', error);
+    res.status(500).json({ message: 'Failed to send OTP: ' + error.message });
+  }
+};
+
+const verifyOtp = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+    
+    if (!phone || !otp) {
+      return res.status(400).json({ message: 'Phone and OTP are required' });
+    }
+    
+    // Check if we have a fallback OTP in database
+    const otpQuery = 'SELECT otp, expires_at FROM otp_codes WHERE phone = $1';
+    const otpResult = await pool.query(otpQuery, [phone]);
+    
+    let isValidOtp = false;
+    
+    if (otpResult.rows.length > 0) {
+      const { otp: storedOtp, expires_at } = otpResult.rows[0];
+      
+      // Check if it's a fallback OTP (not TWILIO_MANAGED)
+      if (storedOtp !== 'TWILIO_MANAGED' && storedOtp !== 'TWILIO_MANAGED_NEW') {
+        // Check fallback OTP
+        if (new Date() <= new Date(expires_at) && otp === storedOtp) {
+          isValidOtp = true;
+          console.log(`Fallback OTP verified for ${phone}`);
+        }
+      } else {
+        // Try Twilio verification
+        try {
+          const formattedPhone = phone.replace(/\D/g, '');
+          let twilioPhone = formattedPhone;
+          if (!twilioPhone.startsWith('91') && twilioPhone.length === 10) {
+            twilioPhone = '91' + twilioPhone;
+          }
+          if (!twilioPhone.startsWith('+')) {
+            twilioPhone = '+' + twilioPhone;
+          }
+          
+          const verificationCheck = await client.verify.v2
+            .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+            .verificationChecks
+            .create({ to: twilioPhone, code: otp });
+          
+          if (verificationCheck.status === 'approved') {
+            isValidOtp = true;
+            console.log(`Twilio OTP verified for ${phone}`);
+          }
+        } catch (twilioError) {
+          console.error('Twilio verification failed:', twilioError.message);
+        }
+      }
+    }
+    
+    if (isValidOtp) {
+      // Update OTP status in database
+      await pool.query(
+        'UPDATE otp_codes SET otp = $1 WHERE phone = $2',
+        ['VERIFIED', phone]
+      );
+      
+      // Get user details from database
+      const userQuery = 'SELECT id, email, phone, name FROM users WHERE phone = $1';
+      const userResult = await pool.query(userQuery, [phone]);
+      
+      let user = { phone };
+      if (userResult.rows.length > 0) {
+        user = userResult.rows[0];
+        
+        // Update login status in database
+        await pool.query('UPDATE users SET is_logged_in = true WHERE id = $1', [user.id]);
+      }
+      
+      // Generate token for user
+      const token = jwt.sign(
+        { phone, userId: user.id, type: 'user' },
+        process.env.JWT_SECRET || 'secret',
+        { expiresIn: '24h' }
+      );
+      
+      res.json({ 
+        message: 'OTP verified successfully',
+        token,
+        user
+      });
+    } else {
+      res.status(400).json({ message: 'Invalid or expired OTP' });
+    }
+  } catch (error) {
+    console.error('Verify OTP error:', error);
+    res.status(500).json({ message: 'Failed to verify OTP: ' + error.message });
+  }
+};
+
+const logoutUser = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+    
+    // Update login status to false
+    await pool.query('UPDATE users SET is_logged_in = false WHERE phone = $1', [phone]);
+    
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { login, checkUser, registerUser, sendOtp, verifyOtp, logoutUser, getProfile, updateProfile, changePassword };
