@@ -3,6 +3,40 @@ const twilio = require('twilio');
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
 class TwilioService {
+  constructor() {
+    this.verifyServiceSid = null;
+  }
+
+  async getOrCreateVerifyService() {
+    if (this.verifyServiceSid) {
+      return this.verifyServiceSid;
+    }
+
+    try {
+      // Try to use the configured service first
+      if (process.env.TWILIO_VERIFY_SERVICE_SID) {
+        const service = await client.verify.v2.services(process.env.TWILIO_VERIFY_SERVICE_SID).fetch();
+        this.verifyServiceSid = service.sid;
+        return this.verifyServiceSid;
+      }
+    } catch (error) {
+      console.log('Configured verify service not found, creating new one...');
+    }
+
+    try {
+      // Create a new verify service
+      const service = await client.verify.v2.services.create({
+        friendlyName: 'LocalHub OTP Service'
+      });
+      this.verifyServiceSid = service.sid;
+      console.log('Created new Twilio Verify Service:', this.verifyServiceSid);
+      return this.verifyServiceSid;
+    } catch (error) {
+      console.error('Failed to create verify service:', error);
+      throw error;
+    }
+  }
+
   formatPhoneNumber(phoneNumber) {
     // Remove all non-digits
     let cleaned = phoneNumber.replace(/\D/g, '');
@@ -22,11 +56,12 @@ class TwilioService {
 
   async sendOTP(phoneNumber) {
     try {
+      const serviceSid = await this.getOrCreateVerifyService();
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
       console.log('Sending OTP to:', formattedPhone);
       
       const verification = await client.verify.v2
-        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+        .services(serviceSid)
         .verifications.create({
           to: formattedPhone,
           channel: 'sms'
@@ -42,11 +77,12 @@ class TwilioService {
 
   async verifyOTP(phoneNumber, code) {
     try {
+      const serviceSid = await this.getOrCreateVerifyService();
       const formattedPhone = this.formatPhoneNumber(phoneNumber);
-      console.log('Verifying OTP for:', formattedPhone, 'Code:', code);
+      console.log('Verifying OTP for:', formattedPhone, 'Code:', code, 'Service:', serviceSid);
       
       const verificationCheck = await client.verify.v2
-        .services(process.env.TWILIO_VERIFY_SERVICE_SID)
+        .services(serviceSid)
         .verificationChecks.create({
           to: formattedPhone,
           code: code
@@ -59,6 +95,15 @@ class TwilioService {
       };
     } catch (error) {
       console.error('Twilio verify OTP error:', error);
+      
+      // Handle specific error cases
+      if (error.code === 20404) {
+        return { 
+          success: false, 
+          error: 'No pending verification found for this phone number. Please request a new OTP.' 
+        };
+      }
+      
       return { success: false, error: error.message };
     }
   }
