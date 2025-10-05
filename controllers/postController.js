@@ -26,15 +26,15 @@ const createPost = async (req, res) => {
     
     const user = userResult.rows[0];
     
-    // Create post with media support
+    // Create post without media_urls column for now
     const postQuery = `
-      INSERT INTO posts (title, content, menu_id, assigned_label, user_id, media_urls, status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'approved')
-      RETURNING id, title, content, menu_id, assigned_label, user_id, media_urls, status, created_at
+      INSERT INTO posts (title, content, menu_id, assigned_label, user_id, status)
+      VALUES ($1, $2, $3, $4, $5, 'approved')
+      RETURNING id, title, content, menu_id, assigned_label, user_id, status, created_at
     `;
     
     const postResult = await pool.query(postQuery, [
-      title, content, menuId, assignedLabel, user.id, JSON.stringify(mediaUrls || [])
+      title, content, menuId, assignedLabel, user.id
     ]);
     
     const post = postResult.rows[0];
@@ -48,7 +48,7 @@ const createPost = async (req, res) => {
         menuId: post.menu_id,
         assignedLabel: post.assigned_label,
         userId: post.user_id,
-        mediaUrls: JSON.parse(post.media_urls || '[]'),
+        mediaUrls: [],
         status: post.status,
         createdAt: post.created_at,
         authorType: user.profile_type,
@@ -100,7 +100,7 @@ const getUserPosts = async (req, res) => {
       menuName: post.menu_name,
       menuIcon: post.menu_icon,
       assignedLabel: post.assigned_label,
-      mediaUrls: JSON.parse(post.media_urls || '[]'),
+      mediaUrls: [],
       status: post.status,
       createdAt: post.created_at,
       authorName: post.business_name || post.name || 'User',
@@ -136,7 +136,7 @@ const getAllPosts = async (req, res) => {
       menuName: post.menu_name,
       menuIcon: post.menu_icon,
       assignedLabel: post.assigned_label,
-      mediaUrls: JSON.parse(post.media_urls || '[]'),
+      mediaUrls: [],
       status: post.status,
       createdAt: post.created_at,
       authorName: post.business_name || post.name || 'User',
