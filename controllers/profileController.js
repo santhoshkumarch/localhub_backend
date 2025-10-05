@@ -41,7 +41,8 @@ const updateProfile = async (req, res) => {
     const { phone } = req.params;
     const { name, email, profileType, businessName, businessCategory, address } = req.body;
     
-    const query = `
+    // First try to update existing user
+    let query = `
       UPDATE users 
       SET name = $1, email = $2, profile_type = $3, business_name = $4, 
           business_category = $5, address = $6, updated_at = NOW()
@@ -50,12 +51,22 @@ const updateProfile = async (req, res) => {
                 business_category, address, updated_at
     `;
     
-    const result = await pool.query(query, [
+    let result = await pool.query(query, [
       name, email, profileType, businessName, businessCategory, address, phone
     ]);
     
+    // If user doesn't exist, create new user
     if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      query = `
+        INSERT INTO users (phone, name, email, profile_type, business_name, business_category, address)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, phone, name, email, profile_type, business_name, 
+                  business_category, address, created_at as updated_at
+      `;
+      
+      result = await pool.query(query, [
+        phone, name, email, profileType, businessName, businessCategory, address
+      ]);
     }
     
     const user = result.rows[0];
