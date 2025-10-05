@@ -8,12 +8,20 @@ const createPost = async (req, res) => {
       return res.status(400).json({ message: 'Title, content, menu, and phone number are required' });
     }
     
-    // Get user by phone number
-    const userQuery = 'SELECT id, profile_type, business_name, name FROM users WHERE phone = $1';
-    const userResult = await pool.query(userQuery, [phoneNumber]);
+    // Get user by phone number, create if doesn't exist
+    let userQuery = 'SELECT id, profile_type, business_name, name FROM users WHERE phone = $1';
+    let userResult = await pool.query(userQuery, [phoneNumber]);
     
     if (userResult.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+      // Create user if doesn't exist
+      const createUserQuery = `
+        INSERT INTO users (phone, name, email, is_active, is_verified)
+        VALUES ($1, $2, $3, true, true)
+        RETURNING id, profile_type, business_name, name
+      `;
+      const defaultName = 'User';
+      const defaultEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.com`;
+      userResult = await pool.query(createUserQuery, [phoneNumber, defaultName, defaultEmail]);
     }
     
     const user = userResult.rows[0];
@@ -56,6 +64,22 @@ const createPost = async (req, res) => {
 const getUserPosts = async (req, res) => {
   try {
     const { phoneNumber } = req.params;
+    
+    // First ensure user exists
+    let userQuery = 'SELECT id FROM users WHERE phone = $1';
+    let userResult = await pool.query(userQuery, [phoneNumber]);
+    
+    if (userResult.rows.length === 0) {
+      // Create user if doesn't exist
+      const createUserQuery = `
+        INSERT INTO users (phone, name, email, is_active, is_verified)
+        VALUES ($1, $2, $3, true, true)
+        RETURNING id
+      `;
+      const defaultName = 'User';
+      const defaultEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.com`;
+      await pool.query(createUserQuery, [phoneNumber, defaultName, defaultEmail]);
+    }
     
     const query = `
       SELECT p.*, m.name as menu_name, m.icon as menu_icon, u.name, u.business_name, u.profile_type
