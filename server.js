@@ -84,6 +84,8 @@ app.get('/test-db', async (req, res) => {
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/otp', require('./routes/otp'));
+app.use('/api/profile', require('./routes/profile'));
+app.use('/api/categories', require('./routes/categories'));
 app.use('/api/dashboard', require('./routes/dashboard'));
 app.use('/api/users', require('./routes/users'));
 app.use('/api/businesses', require('./routes/businesses'));
