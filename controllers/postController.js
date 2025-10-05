@@ -104,7 +104,10 @@ const getUserPosts = async (req, res) => {
       status: post.status,
       createdAt: post.created_at,
       authorName: post.business_name || post.name || 'User',
-      authorType: post.profile_type
+      authorType: post.profile_type,
+      likes: post.likes_count || 0,
+      comments: post.comments_count || 0,
+      views: post.views_count || 0
     }));
     
     res.json(posts);
@@ -140,7 +143,10 @@ const getAllPosts = async (req, res) => {
       status: post.status,
       createdAt: post.created_at,
       authorName: post.business_name || post.name || 'User',
-      authorType: post.profile_type
+      authorType: post.profile_type,
+      likes: post.likes_count || 0,
+      comments: post.comments_count || 0,
+      views: post.views_count || 0
     }));
     
     res.json(posts);
@@ -150,4 +156,101 @@ const getAllPosts = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getUserPosts, getAllPosts };
+const toggleLike = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { phoneNumber } = req.body;
+    
+    // Get user by phone number
+    const userQuery = 'SELECT id FROM users WHERE phone = $1';
+    const userResult = await pool.query(userQuery, [phoneNumber]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Check if like exists
+    const likeQuery = 'SELECT id FROM post_likes WHERE post_id = $1 AND user_id = $2';
+    const likeResult = await pool.query(likeQuery, [postId, userId]);
+    
+    if (likeResult.rows.length > 0) {
+      // Unlike - remove like
+      await pool.query('DELETE FROM post_likes WHERE post_id = $1 AND user_id = $2', [postId, userId]);
+      await pool.query('UPDATE posts SET likes_count = likes_count - 1 WHERE id = $1', [postId]);
+    } else {
+      // Like - add like
+      await pool.query('INSERT INTO post_likes (post_id, user_id) VALUES ($1, $2)', [postId, userId]);
+      await pool.query('UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1', [postId]);
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Toggle like error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const addComment = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    const { phoneNumber, comment } = req.body;
+    
+    if (!comment || comment.trim() === '') {
+      return res.status(400).json({ message: 'Comment is required' });
+    }
+    
+    // Get user by phone number
+    const userQuery = 'SELECT id FROM users WHERE phone = $1';
+    const userResult = await pool.query(userQuery, [phoneNumber]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    // Add comment
+    await pool.query('INSERT INTO post_comments (post_id, user_id, comment) VALUES ($1, $2, $3)', 
+      [postId, userId, comment.trim()]);
+    
+    // Update comment count
+    await pool.query('UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1', [postId]);
+    
+    res.status(201).json({ success: true });
+  } catch (error) {
+    console.error('Add comment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getComments = async (req, res) => {
+  try {
+    const { postId } = req.params;
+    
+    const query = `
+      SELECT pc.*, u.name, u.business_name
+      FROM post_comments pc
+      JOIN users u ON pc.user_id = u.id
+      WHERE pc.post_id = $1
+      ORDER BY pc.created_at ASC
+    `;
+    
+    const result = await pool.query(query, [postId]);
+    
+    const comments = result.rows.map(comment => ({
+      id: comment.id,
+      comment: comment.comment,
+      authorName: comment.business_name || comment.name || 'User',
+      createdAt: comment.created_at
+    }));
+    
+    res.json(comments);
+  } catch (error) {
+    console.error('Get comments error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments };
