@@ -1,4 +1,5 @@
 const twilioService = require('../services/twilioService');
+const pool = require('../config/database');
 
 const sendOTP = async (req, res) => {
   try {
@@ -41,12 +42,46 @@ const verifyOTP = async (req, res) => {
 
     // Bypass for blocked number
     if (phoneNumber === '+917904175862' && code === '123456') {
+      // Create user entry after OTP verification
+      try {
+        const userQuery = 'SELECT id FROM users WHERE phone = $1';
+        const userResult = await pool.query(userQuery, [phoneNumber]);
+        
+        if (userResult.rows.length === 0) {
+          const createUserQuery = `
+            INSERT INTO users (phone, name, email, is_active, is_verified, profile_type)
+            VALUES ($1, $2, $3, true, true, 'individual')
+          `;
+          const defaultName = 'User';
+          const defaultEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.com`;
+          await pool.query(createUserQuery, [phoneNumber, defaultName, defaultEmail]);
+        }
+      } catch (error) {
+        console.error('Error creating user after OTP:', error);
+      }
       return res.json({ message: 'OTP verified successfully (test mode)', verified: true });
     }
 
     const result = await twilioService.verifyOTP(phoneNumber, code);
     
     if (result.success) {
+      // Create user entry after OTP verification
+      try {
+        const userQuery = 'SELECT id FROM users WHERE phone = $1';
+        const userResult = await pool.query(userQuery, [phoneNumber]);
+        
+        if (userResult.rows.length === 0) {
+          const createUserQuery = `
+            INSERT INTO users (phone, name, email, is_active, is_verified, profile_type)
+            VALUES ($1, $2, $3, true, true, 'individual')
+          `;
+          const defaultName = 'User';
+          const defaultEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.com`;
+          await pool.query(createUserQuery, [phoneNumber, defaultName, defaultEmail]);
+        }
+      } catch (error) {
+        console.error('Error creating user after OTP:', error);
+      }
       res.json({ message: 'OTP verified successfully', verified: true });
     } else {
       res.status(400).json({ error: result.error || 'Invalid OTP', verified: false });
