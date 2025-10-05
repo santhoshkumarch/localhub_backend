@@ -270,7 +270,8 @@ ON CONFLICT (name) DO NOTHING;
 ALTER TABLE users 
 ADD COLUMN IF NOT EXISTS profile_type VARCHAR(20) DEFAULT 'individual' CHECK (profile_type IN ('individual', 'business')),
 ADD COLUMN IF NOT EXISTS business_name VARCHAR(255),
-ADD COLUMN IF NOT EXISTS business_category VARCHAR(100);
+ADD COLUMN IF NOT EXISTS business_category VARCHAR(100),
+ADD COLUMN IF NOT EXISTS address TEXT;
 
 -- Insert default settings
 INSERT INTO settings (category, key, value, type, description) VALUES 
