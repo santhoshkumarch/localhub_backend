@@ -8,6 +8,11 @@ const sendOTP = async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
+    // Bypass for blocked number
+    if (phoneNumber === '+917904175862') {
+      return res.json({ message: 'OTP sent successfully (test mode - use 123456)' });
+    }
+
     const result = await twilioService.sendOTP(phoneNumber);
     
     if (result.success) {
@@ -32,6 +37,11 @@ const verifyOTP = async (req, res) => {
     
     if (!phoneNumber || !code) {
       return res.status(400).json({ error: 'Phone number and code are required' });
+    }
+
+    // Bypass for blocked number
+    if (phoneNumber === '+917904175862' && code === '123456') {
+      return res.json({ message: 'OTP verified successfully (test mode)', verified: true });
     }
 
     const result = await twilioService.verifyOTP(phoneNumber, code);
