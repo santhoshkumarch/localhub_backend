@@ -94,6 +94,7 @@ app.use('/api/districts', require('./routes/districts'));
 app.use('/api/hashtags', require('./routes/hashtags'));
 app.use('/api/menus', require('./routes/menus'));
 app.use('/api/settings', require('./routes/settings'));
+app.use('/api/migrate', require('./routes/migrate'));
 
 // Start server
 const startServer = async () => {
