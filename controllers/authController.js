@@ -176,9 +176,9 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'Phone number is required' });
     }
     
-    // Insert new user with only phone number
-    const query = 'INSERT INTO users (phone) VALUES ($1) RETURNING id, phone';
-    const result = await pool.query(query, [phone]);
+    // Insert new user with phone and explicitly NULL profile_type
+    const query = 'INSERT INTO users (phone, profile_type) VALUES ($1, $2) RETURNING id, phone, profile_type';
+    const result = await pool.query(query, [phone, null]);
     
     res.json({ message: 'User registered successfully', user: result.rows[0] });
   } catch (error) {
