@@ -170,18 +170,15 @@ const checkUser = async (req, res) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { phone, name } = req.body;
+    const { phone } = req.body;
     
-    if (!phone || !name) {
-      return res.status(400).json({ message: 'Phone and name are required' });
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
     }
     
-    // Generate email from phone number since email is required
-    const email = `${phone}@localhub.app`;
-    
-    // Insert new user
-    const query = 'INSERT INTO users (email, phone, name) VALUES ($1, $2, $3) RETURNING id, email, phone, name';
-    const result = await pool.query(query, [email, phone, name]);
+    // Insert new user with only phone number
+    const query = 'INSERT INTO users (phone) VALUES ($1) RETURNING id, phone';
+    const result = await pool.query(query, [phone]);
     
     res.json({ message: 'User registered successfully', user: result.rows[0] });
   } catch (error) {
