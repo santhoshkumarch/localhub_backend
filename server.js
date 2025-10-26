@@ -52,11 +52,20 @@ const initDatabase = async () => {
 
 // Health check endpoints
 app.get('/', (req, res) => {
-  res.status(200).json({ status: 'OK', message: 'LocalHub Admin Backend', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'OK', 
+    message: 'LocalHub Admin Backend', 
+    timestamp: new Date().toISOString(),
+    port: PORT
+  });
 });
 
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
 app.get('/test-db', async (req, res) => {
@@ -100,13 +109,27 @@ app.use('/api/migration', require('./routes/migration'));
 // Start server
 const startServer = async () => {
   try {
+    // Start server first
+    const server = app.listen(PORT, '0.0.0.0', () => {
+      console.log(`LocalHub Admin Backend running on port ${PORT}`);
+      console.log(`Health check available at http://0.0.0.0:${PORT}/`);
+    });
+    
+    // Initialize database after server starts (non-blocking)
     if (process.env.DATABASE_URL || process.env.DB_HOST) {
-      await initDatabase();
+      initDatabase().catch(error => {
+        console.error('Database initialization failed:', error);
+      });
     } else {
       console.log('No database configuration found, skipping database initialization');
     }
-    app.listen(PORT, '0.0.0.0', () => {
-      console.log(`LocalHub Admin Backend running on port ${PORT}`);
+    
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('Process terminated');
+      });
     });
   } catch (error) {
     console.error('Server startup error:', error);
