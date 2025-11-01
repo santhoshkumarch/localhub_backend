@@ -328,7 +328,11 @@ const getPostsForAdmin = async (req, res) => {
       createdAt: post.created_at,
       updatedAt: post.updated_at,
       menuId: post.menu_id,
-      assignedLabel: post.assigned_label
+      assignedLabel: post.assigned_label,
+      viewDuration: post.view_duration,
+      expiresAt: post.expires_at,
+      viewLimit: post.view_limit,
+      currentViews: post.views_count || 0
     }));
     
     res.json(posts);
@@ -361,4 +365,53 @@ const assignPostLabel = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel };
+const setPostDuration = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { viewDuration } = req.body;
+    
+    if (!viewDuration || viewDuration <= 0) {
+      return res.status(400).json({ message: 'Valid view duration is required' });
+    }
+    
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + viewDuration);
+    
+    const query = 'UPDATE posts SET view_duration = $1, expires_at = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *';
+    const result = await pool.query(query, [viewDuration, expiresAt.toISOString(), id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    res.json({ message: 'Post duration set successfully', post: result.rows[0] });
+  } catch (error) {
+    console.error('Set post duration error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const setPostViewLimit = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { viewLimit } = req.body;
+    
+    if (!viewLimit || viewLimit <= 0) {
+      return res.status(400).json({ message: 'Valid view limit is required' });
+    }
+    
+    const query = 'UPDATE posts SET view_limit = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
+    const result = await pool.query(query, [viewLimit, id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    res.json({ message: 'Post view limit set successfully', post: result.rows[0] });
+  } catch (error) {
+    console.error('Set post view limit error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel, setPostDuration, setPostViewLimit };

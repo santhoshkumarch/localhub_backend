@@ -1,5 +1,5 @@
 const express = require('express');
-const { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel } = require('../controllers/postController');
+const { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel, setPostDuration, setPostViewLimit } = require('../controllers/postController');
 
 const router = express.Router();
 
@@ -9,6 +9,8 @@ router.get('/admin', getPostsForAdmin);
 router.get('/user/:phoneNumber', getUserPosts);
 router.patch('/:id/status', updatePostStatus);
 router.patch('/:id/label', assignPostLabel);
+router.patch('/:id/duration', setPostDuration);
+router.patch('/:id/view-limit', setPostViewLimit);
 router.post('/:postId/like', toggleLike);
 router.post('/:postId/comment', addComment);
 router.get('/:postId/comments', getComments);
