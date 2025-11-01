@@ -338,4 +338,27 @@ const getPostsForAdmin = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin };
+const assignPostLabel = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { menuId, assignedLabel } = req.body;
+    
+    if (!menuId || !assignedLabel) {
+      return res.status(400).json({ message: 'Menu ID and assigned label are required' });
+    }
+    
+    const query = 'UPDATE posts SET menu_id = $1, assigned_label = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3 RETURNING *';
+    const result = await pool.query(query, [menuId, assignedLabel, id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    res.json({ message: 'Post label assigned successfully', post: result.rows[0] });
+  } catch (error) {
+    console.error('Assign post label error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel };
