@@ -29,7 +29,7 @@ const createPost = async (req, res) => {
     // Create post without media_urls column for now
     const postQuery = `
       INSERT INTO posts (title, content, menu_id, assigned_label, user_id, status)
-      VALUES ($1, $2, $3, $4, $5, 'approved')
+      VALUES ($1, $2, $3, $4, $5, 'pending')
       RETURNING id, title, content, menu_id, assigned_label, user_id, status, created_at
     `;
     
@@ -253,4 +253,89 @@ const getComments = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments };
+const updatePostStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    if (!['approved', 'pending', 'rejected', 'expired'].includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+    
+    const query = 'UPDATE posts SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *';
+    const result = await pool.query(query, [status, id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+    
+    res.json({ message: 'Post status updated successfully', post: result.rows[0] });
+  } catch (error) {
+    console.error('Update post status error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const getPostsForAdmin = async (req, res) => {
+  try {
+    const { status, search, category } = req.query;
+    
+    let query = `
+      SELECT p.*, m.name as menu_name, m.icon as menu_icon, u.name, u.business_name, u.profile_type
+      FROM posts p
+      JOIN menus m ON p.menu_id = m.id
+      JOIN users u ON p.user_id = u.id
+      WHERE 1=1
+    `;
+    
+    const params = [];
+    let paramCount = 0;
+    
+    if (status && status !== 'all') {
+      paramCount++;
+      query += ` AND p.status = $${paramCount}`;
+      params.push(status);
+    }
+    
+    if (search) {
+      paramCount++;
+      query += ` AND (p.title ILIKE $${paramCount} OR p.content ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+    }
+    
+    if (category && category !== 'all') {
+      paramCount++;
+      query += ` AND m.name = $${paramCount}`;
+      params.push(category);
+    }
+    
+    query += ' ORDER BY p.created_at DESC LIMIT 100';
+    
+    const result = await pool.query(query, params);
+    
+    const posts = result.rows.map(post => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      author: post.business_name || post.name || 'User',
+      authorType: post.profile_type || 'individual',
+      category: post.menu_name,
+      hashtags: [],
+      likes: post.likes_count || 0,
+      comments: post.comments_count || 0,
+      shares: 0,
+      status: post.status,
+      createdAt: post.created_at,
+      updatedAt: post.updated_at,
+      menuId: post.menu_id,
+      assignedLabel: post.assigned_label
+    }));
+    
+    res.json(posts);
+  } catch (error) {
+    console.error('Get posts for admin error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin };
