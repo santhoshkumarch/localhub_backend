@@ -15,10 +15,11 @@ app.use(cors({
     // Allow requests with no origin (mobile apps, etc.)
     if (!origin) return callback(null, true);
     
-    // Allow localhost and Vercel domains
+    // Allow localhost, Vercel, and Railway domains
     if (origin.includes('localhost') || 
         origin.includes('vercel.app') || 
-        origin.includes('railway.app')) {
+        origin.includes('railway.app') ||
+        origin.includes('localhubbackend-production.up.railway.app')) {
       return callback(null, true);
     }
     
@@ -42,11 +43,20 @@ app.options('*', (req, res) => {
 // Initialize database
 const initDatabase = async () => {
   try {
+    if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
+      console.log('No database configuration found, skipping initialization');
+      return;
+    }
+    
+    // Test connection first
+    await pool.query('SELECT NOW()');
+    console.log('Database connection successful');
+    
     const initSQL = fs.readFileSync(path.join(__dirname, 'config', 'init.sql'), 'utf8');
     await pool.query(initSQL);
     console.log('Database initialized successfully');
   } catch (error) {
-    console.error('Database initialization error:', error);
+    console.error('Database initialization error:', error.message);
   }
 };
 
@@ -70,6 +80,13 @@ app.get('/health', (req, res) => {
 
 app.get('/test-db', async (req, res) => {
   try {
+    if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
+      return res.json({ 
+        status: 'No database configured',
+        message: 'Add PostgreSQL database to Railway project'
+      });
+    }
+    
     const result = await pool.query('SELECT NOW()');
     
     // Check if tables exist
@@ -86,7 +103,11 @@ app.get('/test-db', async (req, res) => {
       tables: tablesResult.rows.map(row => row.table_name)
     });
   } catch (error) {
-    res.status(500).json({ status: 'Database error', error: error.message });
+    res.status(500).json({ 
+      status: 'Database connection failed', 
+      error: error.message,
+      solution: 'Add PostgreSQL database to your Railway project'
+    });
   }
 });
 
