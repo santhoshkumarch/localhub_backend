@@ -2,26 +2,34 @@ const pool = require('../config/database');
 
 const createPost = async (req, res) => {
   try {
-    const { title, content, menuId, assignedLabel, phoneNumber, mediaUrls } = req.body;
+    const { title, content, menuId, assignedLabel, phoneNumber, email, mediaUrls } = req.body;
     
-    if (!title || !content || !menuId || !phoneNumber) {
-      return res.status(400).json({ message: 'Title, content, menu, and phone number are required' });
+    if (!title || !content || !menuId || (!phoneNumber && !email)) {
+      return res.status(400).json({ message: 'Title, content, menu, and phone number or email are required' });
     }
     
-    // Get user by phone number, create if doesn't exist
-    let userQuery = 'SELECT id, profile_type, business_name, name FROM users WHERE phone = $1';
-    let userResult = await pool.query(userQuery, [phoneNumber]);
+    // Get user by phone number or email, create if doesn't exist
+    let userQuery, userParam;
+    if (phoneNumber) {
+      userQuery = 'SELECT id, profile_type, business_name, name FROM users WHERE phone = $1';
+      userParam = phoneNumber;
+    } else {
+      userQuery = 'SELECT id, profile_type, business_name, name FROM users WHERE email = $1';
+      userParam = email;
+    }
+    
+    let userResult = await pool.query(userQuery, [userParam]);
     
     if (userResult.rows.length === 0) {
       // Create user if doesn't exist
       const createUserQuery = `
-        INSERT INTO users (phone, name, email, is_active, is_verified)
+        INSERT INTO users (phone, email, name, is_active, is_verified)
         VALUES ($1, $2, $3, true, true)
         RETURNING id, profile_type, business_name, name
       `;
       const defaultName = 'User';
-      const defaultEmail = `${phoneNumber.replace(/[^0-9]/g, '')}@temp.com`;
-      userResult = await pool.query(createUserQuery, [phoneNumber, defaultName, defaultEmail]);
+      const defaultEmail = email || `${phoneNumber.replace(/[^0-9]/g, '')}@temp.com`;
+      userResult = await pool.query(createUserQuery, [phoneNumber, defaultEmail, defaultName]);
     }
     
     const user = userResult.rows[0];

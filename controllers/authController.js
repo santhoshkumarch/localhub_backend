@@ -142,15 +142,23 @@ const changePassword = async (req, res) => {
 
 const checkUser = async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, email } = req.body;
     
-    if (!phone) {
-      return res.status(400).json({ message: 'Phone number is required' });
+    if (!phone && !email) {
+      return res.status(400).json({ message: 'Phone number or email is required' });
     }
     
     // Check if user exists
-    const query = 'SELECT id, email, phone, name, is_logged_in FROM users WHERE phone = $1';
-    const result = await pool.query(query, [phone]);
+    let query, values;
+    if (email) {
+      query = 'SELECT id, email, phone, name, is_logged_in FROM users WHERE email = $1';
+      values = [email];
+    } else {
+      query = 'SELECT id, email, phone, name, is_logged_in FROM users WHERE phone = $1';
+      values = [phone];
+    }
+    
+    const result = await pool.query(query, values);
     
     if (result.rows.length > 0) {
       const user = result.rows[0];
@@ -170,21 +178,36 @@ const checkUser = async (req, res) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { phone } = req.body;
+    const { phone, email, password } = req.body;
     
-    if (!phone) {
-      return res.status(400).json({ message: 'Phone number is required' });
+    if (!phone && !email) {
+      return res.status(400).json({ message: 'Phone number or email is required' });
     }
     
-    // Insert new user with phone and explicitly NULL profile_type
-    const query = 'INSERT INTO users (phone) VALUES ($1) RETURNING id, phone, profile_type';
-    const result = await pool.query(query, [phone]);
+    // Check if user already exists
+    let checkQuery, checkValues;
+    if (email) {
+      checkQuery = 'SELECT id FROM users WHERE email = $1';
+      checkValues = [email];
+    } else {
+      checkQuery = 'SELECT id FROM users WHERE phone = $1';
+      checkValues = [phone];
+    }
+    
+    const existingUser = await pool.query(checkQuery, checkValues);
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+    
+    // Insert new user
+    const query = 'INSERT INTO users (phone, email, password) VALUES ($1, $2, $3) RETURNING id, phone, email, profile_type';
+    const result = await pool.query(query, [phone, email, password]);
     
     res.json({ message: 'User registered successfully', user: result.rows[0] });
   } catch (error) {
     console.error('Register user error:', error);
     if (error.code === '23505') {
-      return res.status(400).json({ message: 'Phone number already exists' });
+      return res.status(400).json({ message: 'User already exists' });
     }
     res.status(500).json({ message: 'Server error' });
   }
@@ -356,4 +379,53 @@ const logoutUser = async (req, res) => {
   }
 };
 
-module.exports = { login, checkUser, registerUser, sendOtp, verifyOtp, logoutUser, getProfile, updateProfile, changePassword };
+const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
+    // Check if user exists
+    const query = 'SELECT id, email, phone, name, password FROM users WHERE email = $1';
+    const result = await pool.query(query, [email]);
+    
+    if (result.rows.length === 0) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    
+    const user = result.rows[0];
+    
+    // Check password (simple comparison for now)
+    if (password !== user.password) {
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    
+    // Update login status
+    await pool.query('UPDATE users SET is_logged_in = true WHERE id = $1', [user.id]);
+    
+    // Generate token
+    const token = jwt.sign(
+      { userId: user.id, email: user.email, type: 'user' },
+      process.env.JWT_SECRET || 'secret',
+      { expiresIn: '24h' }
+    );
+    
+    res.json({ 
+      message: 'Login successful',
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        phone: user.phone,
+        name: user.name
+      }
+    });
+  } catch (error) {
+    console.error('User login error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { login, checkUser, registerUser, sendOtp, verifyOtp, logoutUser, getProfile, updateProfile, changePassword, loginUser };
