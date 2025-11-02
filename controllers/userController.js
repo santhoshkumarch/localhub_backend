@@ -174,4 +174,32 @@ const toggleUserStatus = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, toggleUserStatus };
+const updateProfileByEmail = async (req, res) => {
+  try {
+    const { name, profileType, businessName, businessCategory, address } = req.body;
+    const { email } = req.params;
+    
+    const query = `
+      UPDATE users 
+      SET name = $1, profile_type = $2, business_name = $3, 
+          business_category = $4, address = $5, updated_at = NOW()
+      WHERE email = $6
+      RETURNING *
+    `;
+    
+    const result = await pool.query(query, [
+      name, profileType, businessName, businessCategory, address, email
+    ]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json({ message: 'Profile updated successfully', user: result.rows[0] });
+  } catch (error) {
+    console.error('Update profile by email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, toggleUserStatus, updateProfileByEmail };
