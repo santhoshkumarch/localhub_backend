@@ -125,6 +125,46 @@ const getUserPosts = async (req, res) => {
   }
 };
 
+const getUserPostsByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    const query = `
+      SELECT p.*, m.name as menu_name, m.icon as menu_icon, u.name, u.business_name, u.profile_type
+      FROM posts p
+      JOIN menus m ON p.menu_id = m.id
+      JOIN users u ON p.user_id = u.id
+      WHERE u.email = $1
+      ORDER BY p.created_at DESC
+    `;
+    
+    const result = await pool.query(query, [email]);
+    
+    const posts = result.rows.map(post => ({
+      id: post.id,
+      title: post.title,
+      content: post.content,
+      menuId: post.menu_id,
+      menuName: post.menu_name,
+      menuIcon: post.menu_icon,
+      assignedLabel: post.assigned_label,
+      mediaUrls: [],
+      status: post.status,
+      createdAt: post.created_at,
+      authorName: post.business_name || post.name || 'User',
+      authorType: post.profile_type,
+      likes: post.likes_count || 0,
+      comments: post.comments_count || 0,
+      views: post.views_count || 0
+    }));
+    
+    res.json(posts);
+  } catch (error) {
+    console.error('Get user posts by email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const getAllPosts = async (req, res) => {
   try {
     const query = `
@@ -422,4 +462,4 @@ const setPostViewLimit = async (req, res) => {
   }
 };
 
-module.exports = { createPost, getUserPosts, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel, setPostDuration, setPostViewLimit };
+module.exports = { createPost, getUserPosts, getUserPostsByEmail, getAllPosts, toggleLike, addComment, getComments, updatePostStatus, getPostsForAdmin, assignPostLabel, setPostDuration, setPostViewLimit };
