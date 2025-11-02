@@ -174,9 +174,32 @@ const toggleUserStatus = async (req, res) => {
   }
 };
 
+const getProfileByEmail = async (req, res) => {
+  try {
+    const { email } = req.params;
+    
+    const query = `
+      SELECT name, email, profile_type, business_name, business_category, address
+      FROM users 
+      WHERE email = $1
+    `;
+    
+    const result = await pool.query(query, [email]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Get profile by email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 const updateProfileByEmail = async (req, res) => {
   try {
-    const { name, profileType, businessName, businessCategory, address } = req.body;
+    const { name, profile_type, business_name, business_category, address } = req.body;
     const { email } = req.params;
     
     const query = `
@@ -188,7 +211,7 @@ const updateProfileByEmail = async (req, res) => {
     `;
     
     const result = await pool.query(query, [
-      name, profileType, businessName, businessCategory, address, email
+      name, profile_type, business_name, business_category, address, email
     ]);
     
     if (result.rows.length === 0) {
@@ -202,4 +225,4 @@ const updateProfileByEmail = async (req, res) => {
   }
 };
 
-module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, toggleUserStatus, updateProfileByEmail };
+module.exports = { getUsers, getUserById, createUser, updateUser, deleteUser, toggleUserStatus, getProfileByEmail, updateProfileByEmail };

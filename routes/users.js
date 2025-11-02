@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUsers, getUserById, createUser, updateUser, deleteUser, toggleUserStatus, updateProfileByEmail } = require('../controllers/userController');
+const { getUsers, getUserById, createUser, updateUser, deleteUser, toggleUserStatus, getProfileByEmail, updateProfileByEmail } = require('../controllers/userController');
 const { authenticate, authorize } = require('../middleware/auth');
 const router = express.Router();
 
@@ -9,6 +9,7 @@ router.post('/', authenticate, authorize('users:write'), createUser);
 router.put('/:id', authenticate, authorize('users:write'), updateUser);
 router.delete('/:id', authenticate, authorize('users:write'), deleteUser);
 router.patch('/:id/toggle-status', authenticate, authorize('users:write'), toggleUserStatus);
+router.get('/profile/:email', getProfileByEmail);
 router.put('/profile/:email', updateProfileByEmail);
 
 module.exports = router;
