@@ -199,19 +199,19 @@ const getProfileByEmail = async (req, res) => {
 
 const updateProfileByEmail = async (req, res) => {
   try {
-    const { name, profile_type, business_name, business_category, address } = req.body;
+    const { name, profile_type, user_type, business_name, business_category, address } = req.body;
     const { email } = req.params;
     
     const query = `
       UPDATE users 
-      SET name = $1, profile_type = $2, business_name = $3, 
-          business_category = $4, address = $5, updated_at = NOW()
-      WHERE email = $6
+      SET name = $1, profile_type = $2, user_type = $3, business_name = $4, 
+          business_category = $5, address = $6, updated_at = NOW()
+      WHERE email = $7
       RETURNING *
     `;
     
     const result = await pool.query(query, [
-      name, profile_type, business_name, business_category, address, email
+      name, profile_type || user_type, user_type || profile_type, business_name, business_category, address, email
     ]);
     
     if (result.rows.length === 0) {
