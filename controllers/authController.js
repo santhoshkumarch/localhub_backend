@@ -199,9 +199,10 @@ const registerUser = async (req, res) => {
       return res.status(400).json({ message: 'User already exists' });
     }
     
-    // Insert new user
-    const query = 'INSERT INTO users (phone, email, password) VALUES ($1, $2, $3) RETURNING id, phone, email, profile_type';
-    const result = await pool.query(query, [phone, email, password]);
+    // Insert new user with default name
+    const defaultName = email ? email.split('@')[0] : 'User';
+    const query = 'INSERT INTO users (phone, email, password, name) VALUES ($1, $2, $3, $4) RETURNING id, phone, email, profile_type';
+    const result = await pool.query(query, [phone, email, password, defaultName]);
     
     res.json({ message: 'User registered successfully', user: result.rows[0] });
   } catch (error) {
