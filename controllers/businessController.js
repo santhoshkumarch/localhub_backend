@@ -196,11 +196,77 @@ const deleteBusiness = async (req, res) => {
   }
 };
 
+const createBusinessByPhone = async (req, res) => {
+  try {
+    const { phoneNumber, name, category, address } = req.body;
+    
+    // Get user by phone
+    const userQuery = 'SELECT id FROM users WHERE phone = $1';
+    const userResult = await pool.query(userQuery, [phoneNumber]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    const query = `
+      INSERT INTO businesses (name, category, address, phone, user_id, status, is_verified)
+      VALUES ($1, $2, $3, $4, $5, 'pending', false)
+      RETURNING *
+    `;
+    
+    const result = await pool.query(query, [name, category, address, phoneNumber, userId]);
+    
+    res.status(201).json({ 
+      message: 'Business created successfully', 
+      business: result.rows[0] 
+    });
+  } catch (error) {
+    console.error('Create business by phone error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+const createBusinessByEmail = async (req, res) => {
+  try {
+    const { email, name, category, address } = req.body;
+    
+    // Get user by email
+    const userQuery = 'SELECT id FROM users WHERE email = $1';
+    const userResult = await pool.query(userQuery, [email]);
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    const userId = userResult.rows[0].id;
+    
+    const query = `
+      INSERT INTO businesses (name, category, address, email, user_id, status, is_verified)
+      VALUES ($1, $2, $3, $4, $5, 'pending', false)
+      RETURNING *
+    `;
+    
+    const result = await pool.query(query, [name, category, address, email, userId]);
+    
+    res.status(201).json({ 
+      message: 'Business created successfully', 
+      business: result.rows[0] 
+    });
+  } catch (error) {
+    console.error('Create business by email error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = { 
   getBusinesses, 
   getBusinessById, 
   updateBusinessStatus, 
   createBusiness, 
   updateBusiness, 
-  deleteBusiness 
+  deleteBusiness,
+  createBusinessByPhone,
+  createBusinessByEmail
 };
